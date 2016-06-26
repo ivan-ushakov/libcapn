@@ -97,6 +97,9 @@ INCLUDE(ExternalProject)
 INCLUDE_DIRECTORIES ("${CAPN_THIRD_PARTY_DIR}/jansson")
 INCLUDE_DIRECTORIES ("${CAPN_THIRD_PARTY_DIR}/jansson/include")
 
+LINK_DIRECTORIES ("/opt/local/lib")
+INCLUDE_DIRECTORIES ("/opt/local/include")
+
 CONFIGURE_FILE("${CAPN_SOURCE_LIB_DIR}/apn_platform.h.cmake" "${PROJECT_BINARY_DIR}/src/library/apn_platform.h")
 CONFIGURE_FILE("${CAPN_SOURCE_LIB_DIR}/apn_version.h.cmake" "${PROJECT_BINARY_DIR}/src/library/apn_version.h")
 
@@ -106,10 +109,11 @@ SET(CAPN_SOURCE_FILES
         ${CAPN_SOURCE_LIB_DIR}/apn_strings.c
         ${CAPN_SOURCE_LIB_DIR}/apn_payload.c
         ${CAPN_SOURCE_LIB_DIR}/apn_tokens.c
-        ${CAPN_SOURCE_LIB_DIR}/apn_binary_message.c
         ${CAPN_SOURCE_LIB_DIR}/apn_array.c
         ${CAPN_SOURCE_LIB_DIR}/apn_strerror.c
         ${CAPN_SOURCE_LIB_DIR}/apn_ssl.c
+        ${CAPN_SOURCE_LIB_DIR}/apn_http2.c
+        ${CAPN_SOURCE_LIB_DIR}/apn_http2_request.c
         ${CAPN_SOURCE_LIB_DIR}/apn_log.c
         )
 
@@ -118,7 +122,6 @@ SET(CAPN_PUBLIC_HEADER_FILES
     ${CAPN_SOURCE_LIB_DIR}/apn_payload.h
     ${PROJECT_BINARY_DIR}/src/library/apn_platform.h
     ${PROJECT_BINARY_DIR}/src/library/apn_version.h
-    ${CAPN_SOURCE_LIB_DIR}/apn_binary_message.h
     ${CAPN_SOURCE_LIB_DIR}/apn_array.h
 )
 
@@ -256,6 +259,7 @@ IF(WIN32)
 ELSE()
 	TARGET_LINK_LIBRARIES(${CAPN_LIB_NAME} "${CAPN_THIRD_PARTY_DIR}/jansson/lib/libjansson.a")
 	TARGET_LINK_LIBRARIES(${CAPN_LIB_NAME} ${OPENSSL_LIBRARIES})
+    TARGET_LINK_LIBRARIES(${CAPN_LIB_NAME} nghttp2)
 ENDIF()
 
 SET_TARGET_PROPERTIES(${CAPN_LIB_NAME} PROPERTIES

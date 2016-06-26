@@ -30,7 +30,6 @@
 #include "apn_private.h"
 #include "apn_array.h"
 #include "apn_paload_private.h"
-#include "apn_binary_message_private.h"
 #include "apn_log.h"
 
 #ifdef _WIN32
