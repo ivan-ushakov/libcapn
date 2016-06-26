@@ -37,6 +37,9 @@
 #include <assert.h>
 #include <stdlib.h>
 
+#include <openssl/err.h>
+#include <openssl/pkcs12.h>
+
 #define APN_CERT_EXTENSION_PRODUCTION "1.2.840.113635.100.6.3.2"
 #define APN_CERT_EXTENSION_SANDBOX    "1.2.840.113635.100.6.3.1"
 
@@ -85,15 +88,27 @@ void apn_ssl_free() {
     EVP_cleanup();
 }
 
+void apn_ssl_print_error(apn_ctx_t *const ctx) {
+    char buffer[256];
+    int error;
+
+    while ((error = ERR_get_error()) != 0) {
+        ERR_error_string_n(error, buffer, sizeof(buffer));
+        apn_log(ctx, APN_LOG_LEVEL_ERROR, "SSL error: %s", buffer);
+    }
+}
+
 apn_return apn_ssl_connect(apn_ctx_t *const ctx) {
     assert(ctx);
 
     SSL_CTX *ssl_ctx = NULL;
-    if (NULL == (ssl_ctx = SSL_CTX_new(TLSv1_client_method()))) {
+    if (NULL == (ssl_ctx = SSL_CTX_new(SSLv23_method()))) {
         apn_log(ctx, APN_LOG_LEVEL_ERROR, "Could not initialize SSL context: %s",
                   ERR_error_string(ERR_get_error(), NULL));
         return APN_ERROR;
     }
+
+    SSL_CTX_set_options(ssl_ctx, SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3);
 
     SSL_CTX_set_ex_data(ssl_ctx, 0, ctx);
     SSL_CTX_set_info_callback(ssl_ctx, __apn_ssl_info_callback);
@@ -302,84 +317,6 @@ apn_return apn_ssl_connect(apn_ctx_t *const ctx) {
     SSL_CTX_free(ssl_ctx);
     errno = APN_ERR_SSL_INVALID_CERTIFICATE;
     return APN_ERROR;
-}
-
-int apn_ssl_write(const apn_ctx_t *const ctx, const uint8_t *message, size_t length) {
-    int bytes_written = 0;
-    int bytes_written_total = 0;
-
-    while (length > 0) {
-        bytes_written = SSL_write(ctx->ssl, message, (int) length);
-        if (bytes_written <= 0) {
-            switch (SSL_get_error(ctx->ssl, bytes_written)) {
-                case SSL_ERROR_WANT_WRITE:
-                case SSL_ERROR_WANT_READ:
-                    continue;
-                case SSL_ERROR_SYSCALL:
-                    switch (errno) {
-                        case EINTR:
-                            continue;
-                        case EPIPE:
-                            errno = APN_ERR_NETWORK_UNREACHABLE;
-                            return -1;
-                        case ETIMEDOUT:
-                            errno = APN_ERR_NETWORK_TIMEDOUT;
-                            return -1;
-                        default:
-                            errno = APN_ERR_SSL_WRITE_FAILED;
-                            return -1;
-                    }
-                case SSL_ERROR_ZERO_RETURN:
-                case SSL_ERROR_NONE:
-                    errno = APN_ERR_CONNECTION_CLOSED;
-                    return -1;
-                default:
-                    errno = APN_ERR_SSL_WRITE_FAILED;
-                    return -1;
-            }
-        }
-        message += bytes_written;
-        bytes_written_total += bytes_written;
-        length -= bytes_written;
-    }
-    return bytes_written_total;
-}
-
-int apn_ssl_read(const apn_ctx_t *const ctx, char *buff, size_t length) {
-    int read;
-    for (; ;) {
-        read = SSL_read(ctx->ssl, buff, (int) length);
-        if (read > 0) {
-            break;
-        }
-        switch (SSL_get_error(ctx->ssl, read)) {
-            case SSL_ERROR_WANT_WRITE:
-            case SSL_ERROR_WANT_READ:
-                continue;
-            case SSL_ERROR_SYSCALL:
-                switch (errno) {
-                    case EINTR:
-                        continue;
-                    case EPIPE:
-                        errno = APN_ERR_NETWORK_UNREACHABLE;
-                        return -1;
-                    case ETIMEDOUT:
-                        errno = APN_ERR_NETWORK_TIMEDOUT;
-                        return -1;
-                    default:
-                        errno = APN_ERR_SSL_READ_FAILED;
-                        return -1;
-                }
-            case SSL_ERROR_ZERO_RETURN:
-            case SSL_ERROR_NONE:
-                errno = APN_ERR_CONNECTION_CLOSED;
-                return -1;
-            default:
-                errno = APN_ERR_SSL_READ_FAILED;
-                return -1;
-        }
-    }
-    return read;
 }
 
 void apn_ssl_close(apn_ctx_t *const ctx) {

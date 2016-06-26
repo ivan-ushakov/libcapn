@@ -238,7 +238,7 @@ int main(int argc, char **argv) {
                 break;
             case 'v':
                 apn_set_log_callback(apn_ctx, __apn_logging);
-                apn_set_log_level(apn_ctx, APN_LOG_LEVEL_INFO | APN_LOG_LEVEL_ERROR);
+                apn_set_log_level(apn_ctx, APN_LOG_LEVEL_DEBUG | APN_LOG_LEVEL_INFO | APN_LOG_LEVEL_ERROR);
                 break;
             case '?':
                 if (optopt == 'c') {
@@ -296,26 +296,15 @@ int main(int argc, char **argv) {
         ret = 1;
         free(error);
     } else {
-        apn_array_t *invalid_tokens = NULL;
-        if (APN_ERROR == apn_send(apn_ctx, payload, tokens, &invalid_tokens)) {
+        if (APN_ERROR == apn_send(apn_ctx, payload, tokens)) {
             ret = 1;
             char *error = apn_error_string(errno);
             fprintf(stderr, "Could not send push: %s (errno: %d)\n", error, errno);
             free(error);
         } else {
             fprintf(stderr, "Notification was sucessfully sent to %u device(s)\n",
-                    apn_array_count(tokens) - ((invalid_tokens) ? apn_array_count(invalid_tokens) : 0));
-        }
-
-        if (invalid_tokens) {
-            fprintf(stderr, "\n");
-            fprintf(stderr, "Invalid tokens:\n");
-            uint32_t i = 0;
-            for (; i < apn_array_count(invalid_tokens); i++) {
-                fprintf(stderr, "    %u. %s\n", i, (const char *)apn_array_item_at_index(invalid_tokens, i));
-            }
-            fprintf(stderr, "\n");
-            apn_array_free(invalid_tokens);
+                    apn_array_count(tokens));
+            sleep(60);
         }
     }
 

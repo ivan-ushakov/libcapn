@@ -213,3 +213,30 @@ apn_array_t * apn_strsplit(char * const string, const char * const delim) {
     return array;
 }
 
+char *apn_printf(const char * format, ...) {
+    va_list l1;
+    va_start(l1, format);
+    va_list l2;
+    va_copy(l2, l1);
+    int size = vsnprintf(NULL, 0, format, l1);
+    if (size < 0) {
+        va_end(l1);
+        va_end(l2);
+        return NULL;
+    }
+    va_end(l1);
+
+    size = size + 1;
+    char *buffer = malloc((size_t)size);
+    if (!buffer) {
+        va_end(l1);
+        va_end(l2);
+        errno = ENOMEM;
+        return NULL;
+    }
+    buffer[size] = 0;
+
+    vsnprintf(buffer, size, format, l2);
+    va_end(l2);
+    return buffer;
+}

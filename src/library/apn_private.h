@@ -23,17 +23,21 @@
 #ifndef __APN_PRIVATE_H__
 #define __APN_PRIVATE_H__
 
-#include <stddef.h>
-#include <time.h>
 #include "apn_platform.h"
 #include "apn.h"
+
+#include <stddef.h>
+#include <time.h>
+#include <pthread.h>
+
+#include <openssl/ssl.h>
+#include <nghttp2/nghttp2.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 struct __apn_ctx_t {
-    uint8_t feedback;
     uint16_t log_level;
     apn_connection_mode mode;
     SOCKET sock;
@@ -43,9 +47,14 @@ struct __apn_ctx_t {
     char *private_key_pass;
     char *pkcs12_file;
     char *pkcs12_pass;
+    char *authority;
     SSL *ssl;
+    nghttp2_session_callbacks *callbacks;
+    nghttp2_session *session;
+    int want_io;
+    pthread_t thread;
     log_callback log_callback;
-    invalid_token_callback invalid_token_callback;
+    token_callback token_callback;
 };
 
 

@@ -24,11 +24,8 @@
 #define __APN_H__
 
 #include "apn_platform.h"
-#include "apn_binary_message.h"
 #include "apn_payload.h"
 #include "apn_array.h"
-
-#include <openssl/ssl.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -141,7 +138,7 @@ typedef enum __apn_log_levels {
 
 typedef struct __apn_ctx_t apn_ctx_t;
 
-typedef void (*invalid_token_callback)(const char * const token, uint32_t index);
+typedef void (*token_callback)(const char * const token, const char * const apns_id, uint32_t status);
 typedef void (*log_callback)(apn_log_levels level, const char * const log_message, uint32_t message_len);
 
 __apn_export__ apn_return apn_library_init()
@@ -263,7 +260,7 @@ __apn_export__ void apn_set_log_level(apn_ctx_t * const ctx, uint16_t level)
 __apn_export__ void apn_set_log_callback(apn_ctx_t *const ctx, log_callback funct)
         __apn_attribute_nonnull__((1,2));
 
-__apn_export__ void apn_set_invalid_token_callback(apn_ctx_t *const ctx, invalid_token_callback funct)
+__apn_export__ void apn_set_token_callback(apn_ctx_t *const ctx, token_callback funct)
         __apn_attribute_nonnull__((1,2));
 
 /**
@@ -366,41 +363,13 @@ __apn_export__ const char *apn_private_key_pass(const apn_ctx_t * const ctx)
  *
  * @param[in] ctx - Pointer to an initialized `ctx` structure. Cannot be NULL.
  * @param[in] payload - Pointer to `payload` structure. Cannot be NULL.
- * @param[in, out] invalid_tokens - Array of invalid tokens. Each item is string.
  *
  * @return
  *      - ::APN_SUCCESS on success.
  *      - ::APN_ERROR on failure with error information stored in `errno`.
  */
-__apn_export__ apn_return apn_send(apn_ctx_t * const ctx, const apn_payload_t *payload, apn_array_t *tokens, apn_array_t **invalid_tokens)
+__apn_export__ apn_return apn_send(apn_ctx_t * const ctx, const apn_payload_t *payload, apn_array_t *tokens)
         __apn_attribute_nonnull__((1,2,3));
-
-/**
- * Opens Apple Push Feedback Service connection.
- *
- * @param[in] ctx - Pointer to an initialized `ctx` structure. Cannot be NULL.
- *
- * @return
- *      - ::APN_SUCCESS on success.
- *      - ::APN_ERROR on failure with error information stored in `errno`.
- */
-__apn_export__ apn_return apn_feedback_connect(apn_ctx_t * const ctx)
-        __apn_attribute_nonnull__((1));
-
-/**
- * Returns array of device tokens which no longer exists.
- *
- * @param[in] ctx - Pointer to an initialized `::apn_ctx` structure. Cannot be NULL.
- * @param[in, out] tokens_array - Pointer to a device tokens array. The array should be freed - call ::apn_array_free()
- * function for it.
- *
- * @return
- *      - ::APN_SUCCESS on success.
- *      - ::APN_ERROR on failure with error information stored in `errno`.
- */
-__apn_export__ apn_return apn_feedback(const apn_ctx_t * const ctx, apn_array_t **tokens)
-        __apn_attribute_nonnull__((1, 2));
-
 
 __apn_export__ char *apn_error_string(int err_code);
 

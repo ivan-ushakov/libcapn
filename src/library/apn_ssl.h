@@ -25,8 +25,6 @@
 
 #include "apn_platform.h"
 #include "apn.h"
-#include <openssl/err.h>
-#include <openssl/pkcs12.h>
 
 void apn_ssl_init();
 void apn_ssl_free();
@@ -36,11 +34,5 @@ apn_return apn_ssl_connect(apn_ctx_t *const ctx)
 
 void apn_ssl_close(apn_ctx_t *const ctx)
         __apn_attribute_nonnull__((1));
-
-int apn_ssl_write(const apn_ctx_t *const ctx, const uint8_t *message, size_t length)
-        __apn_attribute_nonnull__((1,2));
-
-int apn_ssl_read(const apn_ctx_t *const ctx, char *buff, size_t length)
-        __apn_attribute_nonnull__((1,2));
 
 #endif
