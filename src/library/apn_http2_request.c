@@ -17,6 +17,7 @@ apn_http2_request_t *apn_http2_request_create(const apn_payload_t *const payload
         errno = ENOMEM;
         return NULL;
     }
+    memset(request, 0, sizeof(apn_http2_request_t));
 
     request->path = apn_printf("/3/device/%s", token);
     if (!request->path) {
@@ -42,13 +43,9 @@ apn_http2_request_t *apn_http2_request_create(const apn_payload_t *const payload
         errno = APN_ERR_INVALID_PAYLOAD_SIZE;
         return NULL;
     }
-    request->body_send_cursor = 0;
 
-    request->stream_id = -1;
     request->response = malloc(1);
     request->response_size = 0;
-    request->apns_id = NULL;
-    request->status = 0;
 
     return request;
 }

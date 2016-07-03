@@ -260,6 +260,12 @@ __apn_export__ void apn_set_log_level(apn_ctx_t * const ctx, uint16_t level)
 __apn_export__ void apn_set_log_callback(apn_ctx_t *const ctx, log_callback funct)
         __apn_attribute_nonnull__((1,2));
 
+/**
+ * Sets the token callback function.
+ *
+ * @param[in] ctx - Pointer to an initialized `ctx` structure. Cannot be NULL.
+ * @param[in] funct A token function with a compatible signature.
+ */
 __apn_export__ void apn_set_token_callback(apn_ctx_t *const ctx, token_callback funct)
         __apn_attribute_nonnull__((1,2));
 
@@ -363,12 +369,13 @@ __apn_export__ const char *apn_private_key_pass(const apn_ctx_t * const ctx)
  *
  * @param[in] ctx - Pointer to an initialized `ctx` structure. Cannot be NULL.
  * @param[in] payload - Pointer to `payload` structure. Cannot be NULL.
+ * @param[in] token - device token. Cannot be NULL.
  *
  * @return
  *      - ::APN_SUCCESS on success.
  *      - ::APN_ERROR on failure with error information stored in `errno`.
  */
-__apn_export__ apn_return apn_send(apn_ctx_t * const ctx, const apn_payload_t *payload, apn_array_t *tokens)
+__apn_export__ apn_return apn_send(apn_ctx_t * const ctx, const apn_payload_t *payload, const char *const token)
         __apn_attribute_nonnull__((1,2,3));
 
 __apn_export__ char *apn_error_string(int err_code);

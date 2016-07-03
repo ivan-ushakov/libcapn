@@ -82,63 +82,19 @@ static ssize_t recv_callback(nghttp2_session *session, uint8_t *buf, size_t leng
     return rv;
 }
 
-static int on_frame_send_callback(nghttp2_session *session, const nghttp2_frame *frame, void *user_data) {
-    apn_ctx_t *ctx = user_data;
-    switch (frame->hd.type) {
-        case NGHTTP2_HEADERS:
-            apn_log(ctx, APN_LOG_LEVEL_DEBUG, "frame_send: NGHTTP2_HEADERS");
-            break;
-        case NGHTTP2_RST_STREAM:
-            apn_log(ctx, APN_LOG_LEVEL_DEBUG, "frame_send: NGHTTP2_RST_STREAM");
-            break;
-        case NGHTTP2_GOAWAY:
-            apn_log(ctx, APN_LOG_LEVEL_DEBUG, "frame_send: NGHTTP2_GOAWAY");
-            break;
-        default:
-            break;
-    }
-    return 0;
-}
-
-static int on_frame_recv_callback(nghttp2_session *session, const nghttp2_frame *frame, void *user_data) {
-    apn_ctx_t *ctx = user_data;
-    switch (frame->hd.type) {
-        case NGHTTP2_HEADERS:
-            apn_log(ctx, APN_LOG_LEVEL_DEBUG, "frame_received: NGHTTP2_HEADERS");
-            break;
-        case NGHTTP2_RST_STREAM:
-            apn_log(ctx, APN_LOG_LEVEL_DEBUG, "frame_received: NGHTTP2_RST_STREAM");
-            break;
-        case NGHTTP2_GOAWAY:
-            apn_log(ctx, APN_LOG_LEVEL_DEBUG, "frame_received: NGHTTP2_GOAWAY");
-            break;
-        default:
-            break;
-    }
-    return 0;
-}
-
 static int on_header_callback(nghttp2_session *session, const nghttp2_frame *frame, const uint8_t *name, size_t namelen, const uint8_t *value, size_t valuelen, uint8_t flags, void *user_data) {
     apn_ctx_t *ctx = user_data;
     apn_http2_request_t *request = nghttp2_session_get_stream_user_data(session, frame->hd.stream_id);
-    switch (frame->hd.type) {
-        case NGHTTP2_HEADERS:
-            if (frame->headers.cat != NGHTTP2_HCAT_RESPONSE) {
-                return 0;
-            }
+    if (frame->hd.type == NGHTTP2_HEADERS && frame->headers.cat == NGHTTP2_HCAT_RESPONSE) {
+        if (strcmp((char *)name, "apns-id") == 0) {
+            request->apns_id = apn_strndup((char *)value, valuelen);
+            apn_log(ctx, APN_LOG_LEVEL_DEBUG, "response apns-id: %s", request->apns_id);
+        }
 
-            if (strcmp((char *)name, "apns-id") == 0) {
-                request->apns_id = apn_strndup((char *)value, valuelen);
-                apn_log(ctx, APN_LOG_LEVEL_DEBUG, "response apns-id: %s", request->apns_id);
-            }
-
-            if (strcmp((char *)name, ":status") == 0) {
-                long status = strtol((char *)value, NULL, 10);
-                apn_log(ctx, APN_LOG_LEVEL_DEBUG, "response status code: %d", (int)status);
-            }
-            break;
-        default:
-            break;
+        if (strcmp((char *)name, ":status") == 0) {
+            request->status = atoi((char *)value);
+            apn_log(ctx, APN_LOG_LEVEL_DEBUG, "response status: %d", request->status);
+        }
     }
 
     return 0;
@@ -151,12 +107,10 @@ static int on_stream_close_callback(nghttp2_session *session, int32_t stream_id,
     apn_http2_request_t *request = nghttp2_session_get_stream_user_data(session, stream_id);
     if (request) {
         if (request->response_size > 0) {
-            apn_log(ctx, APN_LOG_LEVEL_DEBUG, "stream_close: stream %d response: %s", request->stream_id, request->response);
+            apn_log(ctx, APN_LOG_LEVEL_DEBUG, "stream_close: stream %d response: %s", stream_id, request->response);
         }
-
-        int rv = nghttp2_session_terminate_session(session, NGHTTP2_NO_ERROR);
-        if (rv != 0) {
-            apn_log(ctx, APN_LOG_LEVEL_ERROR, "nghttp2_session_terminate_session: %d", rv);
+        if (ctx->token_callback) {
+            ctx->token_callback(request->token, request->apns_id, request->status);
         }
     }
     return 0;
@@ -207,8 +161,6 @@ static void setup_callbacks(apn_ctx_t *const ctx) {
     nghttp2_session_callbacks_set_send_callback(ctx->callbacks, send_callback);
     nghttp2_session_callbacks_set_recv_callback(ctx->callbacks, recv_callback);
     nghttp2_session_callbacks_set_on_header_callback(ctx->callbacks, on_header_callback);
-    nghttp2_session_callbacks_set_on_frame_send_callback(ctx->callbacks, on_frame_send_callback);
-    nghttp2_session_callbacks_set_on_frame_recv_callback(ctx->callbacks, on_frame_recv_callback);
     nghttp2_session_callbacks_set_on_stream_close_callback(ctx->callbacks, on_stream_close_callback);
     nghttp2_session_callbacks_set_on_data_chunk_recv_callback(ctx->callbacks, on_data_chunk_recv_callback);
 }
@@ -263,6 +215,8 @@ void *apn_http2_event_loop(void *data) {
         ctl_poll(pollfds, ctx);
     }
 
+    apn_log(ctx, APN_LOG_LEVEL_DEBUG, "event loop stopped");
+
     return NULL;
 }
 
@@ -313,7 +267,6 @@ apn_return apn_http2_send_request(apn_ctx_t *const ctx, apn_http2_request_t *con
         return APN_ERROR;
     }
 
-    request->stream_id = stream_id;
     apn_log(ctx, APN_LOG_LEVEL_DEBUG, "stream ID: %d", stream_id);
 
     return APN_SUCCESS;

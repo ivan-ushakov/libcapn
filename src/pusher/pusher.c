@@ -54,6 +54,10 @@ static void __apn_logging(apn_log_levels level, const char *const message, uint3
     fprintf(stdout, "======> [apn][%s]: %s\n", prefix, message);
 }
 
+static void __token_callback(const char * const token, const char * const apns_id, uint32_t status) {
+    fprintf(stdout, "Token %s: apns-id: %s, status %d\n", token, apns_id == NULL ? "no" : apns_id, status);
+}
+
 static void __apn_token_free(void *data) {
     free(data);
 }
@@ -172,6 +176,8 @@ int main(int argc, char **argv) {
         apn_library_free();
         return -1;
     }
+
+    apn_set_token_callback(apn_ctx, __token_callback);
 
     apn_payload_t *payload = apn_payload_init();
     if (NULL == payload) {
@@ -296,15 +302,15 @@ int main(int argc, char **argv) {
         ret = 1;
         free(error);
     } else {
-        if (APN_ERROR == apn_send(apn_ctx, payload, tokens)) {
-            ret = 1;
-            char *error = apn_error_string(errno);
-            fprintf(stderr, "Could not send push: %s (errno: %d)\n", error, errno);
-            free(error);
-        } else {
-            fprintf(stderr, "Notification was sucessfully sent to %u device(s)\n",
-                    apn_array_count(tokens));
-            sleep(60);
+        for (uint32_t i = 0; i < apn_array_count(tokens); i++) {
+            const char *token = (const char *) apn_array_item_at_index(tokens, i);
+            if (APN_ERROR == apn_send(apn_ctx, payload, token)) {
+                ret = 1;
+                char *error = apn_error_string(errno);
+                fprintf(stderr, "Could not send push: %s (errno: %d)\n", error, errno);
+                free(error);
+                break;
+            }
         }
     }
 

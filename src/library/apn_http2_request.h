@@ -16,7 +16,6 @@ typedef struct __apn_http2_request_t {
     char *body;
     size_t body_size;
     size_t body_send_cursor;
-    int32_t stream_id;
     char *response;
     size_t response_size;
     char *apns_id;

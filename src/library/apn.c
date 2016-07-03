@@ -116,28 +116,16 @@ apn_ctx_t *apn_init() {
         errno = ENOMEM;
         return NULL;
     }
+    memset(ctx, 0, sizeof(apn_ctx_t));
     ctx->sock = -1;
-    ctx->ssl = NULL;
-    ctx->callbacks = NULL;
-    ctx->session = NULL;
-    ctx->authority = NULL;
-    ctx->certificate_file = NULL;
-    ctx->private_key_file = NULL;
-    ctx->pkcs12_file = NULL;
-    ctx->pkcs12_pass = NULL;
-    ctx->private_key_pass = NULL;
     ctx->mode = APN_MODE_PRODUCTION;
-    ctx->log_callback = NULL;
     ctx->log_level = APN_LOG_LEVEL_ERROR;
-    ctx->token_callback = NULL;
     return ctx;
 }
 
 void apn_free(apn_ctx_t *ctx) {
     if (ctx) {
         apn_close(ctx);
-        apn_http2_free(ctx);
-        apn_mem_free(ctx->authority);
         apn_mem_free(ctx->certificate_file);
         apn_mem_free(ctx->private_key_file);
         apn_mem_free(ctx->private_key_pass);
@@ -152,6 +140,10 @@ void apn_close(apn_ctx_t *const ctx) {
     if(-1 == ctx->sock) {
         return;
     }
+
+    apn_http2_free(ctx);
+    apn_mem_free(ctx->authority);
+
     apn_log(ctx, APN_LOG_LEVEL_INFO, "Connection closing...");
     apn_ssl_close(ctx);
     APN_CLOSE_SOCKET(ctx->sock);
@@ -288,25 +280,21 @@ apn_return apn_connect(apn_ctx_t *const ctx) {
     }
 
 
-apn_return apn_send(apn_ctx_t *const ctx, const apn_payload_t *payload, apn_array_t *tokens) {
+apn_return apn_send(apn_ctx_t *const ctx, const apn_payload_t *payload, const char *const token) {
     assert(ctx);
     assert(payload);
-    assert(tokens);
-    assert(apn_array_count(tokens) > 0);
+    assert(token);
 
     __APN_CHECK_CONNECTION(ctx)
 
-    for (uint32_t i = 0; i < apn_array_count(tokens); i++) {
-        const char *token = (const char *)apn_array_item_at_index(tokens, i);
-        apn_http2_request_t *request = apn_http2_request_create(payload, token);
-        if (NULL == request) {
-            return APN_ERROR;
-        }
+    apn_http2_request_t *request = apn_http2_request_create(payload, token);
+    if (NULL == request) {
+        return APN_ERROR;
+    }
 
-        if (APN_ERROR == apn_http2_send_request(ctx, request)) {
-            // TODO apn_http2_request_free(request);
-            return APN_ERROR;
-        }
+    if (APN_ERROR == apn_http2_send_request(ctx, request)) {
+        // TODO apn_http2_request_free(request);
+        return APN_ERROR;
     }
 
     return APN_SUCCESS;
